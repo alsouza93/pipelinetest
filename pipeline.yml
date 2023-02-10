@@ -1,0 +1,42 @@
+trigger:
+  - master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- task: DockerCompose@0
+  displayName: 'Run tests with Docker Compose'
+  inputs:
+    command: up
+    composeFile: 'docker-compose.yml'
+    serviceName: 'test'
+    commandOptions: '--abort-on-container-exit'
+
+- task: PublishTestResults@2
+  displayName: 'Publish test results'
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: '**/TEST-*.xml'
+
+- task: DockerCompose@0
+  displayName: 'Stop and remove containers'
+  inputs:
+    command: down
+    composeFile: 'docker-compose.yml'
+
+- task: Docker@2
+  displayName: 'Build and push Docker image'
+  inputs:
+    command: buildAndPush
+    repository: '$(imageName)'
+    Dockerfile: 'Dockerfile'
+
+- task: AzureWebApp@1
+  displayName: 'Deploy to Azure Web App'
+  inputs:
+    azureSubscription: 'My Azure Subscription'
+    appType: 'webAppLinux'
+    appName: 'my-web-app'
+    dockerImage: '$(imageName)'
+    runtimeStack: 'DOTNETCORE|6.0'
